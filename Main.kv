@@ -1,0 +1,348 @@
+<MD3Card>
+	padding: 4
+	size_hint: None, None
+	size: "200dp", "100dp"
+
+	MDRelativeLayout:
+
+		MDIconButton:
+			icon: "dots-vertical"
+			pos_hint: {"top": 1, "right": 1}
+
+		MDLabel:
+			id: label
+			text: root.text
+			adaptive_size: True
+			color: "grey"
+			pos: "12dp", "12dp"
+			bold: True
+
+<Login>:
+	name: 'login'
+	id: login
+	Screen:
+		MDLabel:
+			text: "Welcome"
+			font_size: "48dp"
+			halign: "center"
+			color: "#FF5623"
+			pos_hint: {"center_y": .8}
+		MDTextField:
+			id: username
+			hint_text: 'Username'
+			icon_right: 'account'
+			font_size: "20dp"
+			size_hint_x: .85
+			pos_hint: {'center_x':.5, 'center_y': .65}
+			on_text: self.text = self.text.replace(" ","")
+			write_tab: False
+		MDTextField:
+			id: password
+			hint_text: 'Password'
+			password: True
+			icon_right: 'eye-off'
+			font_size: "20dp"
+			size_hint_x: .85
+			pos_hint: {'center_x':.5, 'center_y': .5}
+			on_text: self.text = self.text.replace(" ","")
+			write_tab: False
+		BoxLayout:
+			size_hint: .85, None
+			height: "30dp"
+			pos_hint: {'center_x':.5,'center_y':.4}
+			spacing: '5dp'
+			MDCheckbox:
+				id: cb
+				size_hint: None, None
+				width: '30dp'
+				height: '30dp'
+				pos_hint: {'center_x':.5, 'center_y': .5}
+				on_press:
+					password.password = False if password.password == True else True
+					password.icon_right = "eye" if password.icon_right == "eye-off" else "eye-off"
+			MDLabel:
+				text: "[ref=Show Password]Show Password[/ref]"
+				markup: True
+				pos_hint: {'center_x':.5, 'center_y': .5}
+				on_ref_press:
+					cb.active = False if cb.active == True else True
+		BoxLayout:
+			size_hint: .6, None
+			height: '30dp'
+			pos_hint: {'center_x':.5,'center_y':.3}
+			spacing: '15dp'
+			MDFlatButton:
+				text: "SIGN IN"
+				font_size: "22dp"
+				size_hint_x: 1
+				md_bg_color: "#FF5623"
+				on_release: 
+					root.logger()
+					
+					
+			MDFlatButton:
+				text: "SIGN UP"
+				font_size: "22dp"
+				size_hint_x: 1
+				md_bg_color: "#FF5623"
+				on_release: root.manager.current = "signup"
+		BoxLayout:			
+			MDLabel:
+				pos_hint: {'center_x':.5,'center_y':.2}
+				id: attempt	
+				text : ""
+<Main>:
+	id:main
+	name: 'main'
+	MDBottomNavigation:
+
+		MDBottomNavigationItem:
+			name: "home"
+			text: "Home"
+			icon: "home"
+			BoxLayout:
+				orientation: 'vertical'
+				MDTopAppBar:
+					title: 'Home'			
+				GridLayout:
+					id: imagegrid					
+					cols: 1
+					spacing: dp(8)
+					padding: dp(8)
+			MDIconButton:
+				height: "30dp"
+				pos_hint: {'center_x':.95,'center_y':.95}
+				icon: 'information-outline'
+				style: 'standard'
+				on_release:
+					root.display_info()
+
+		MDBottomNavigationItem:
+			name: "camera"
+			text: "Camera"
+			icon: "camera"
+			BoxLayout:
+				orientation: 'vertical'
+				
+				Camera:
+					id: camera
+					resolution: (640, 480)
+					play: True
+					index: 1
+				BoxLayout:
+					size_hint: .6, None
+					height: '30dp'
+					pos_hint: {'center_x':.5,'center_y':.3}
+					spacing: '15dp'					
+					MDIconButton:
+						icon: "camera-flip"
+						size_hint_y: None
+						size_hint_x: 1
+						height: '60dp'
+						on_release: root.switch_camera()
+					MDIconButton:
+						icon: "camera"
+						size_hint_y: None
+						size_hint_x: 1
+						md_bg_color: "#FF5623"
+						height: '60dp'
+						on_release: 
+							root.capture()
+							root.on_enter()
+					MDIconButton:
+						icon: "image-filter-none"
+						size_hint_y: None
+						size_hint_x: 1
+						height: '60dp'
+						on_release: root.upload_photo()
+
+
+		MDBottomNavigationItem:
+			name: "account"
+			text: "Account"
+			icon: "account"
+	
+			BoxLayout:
+				alignment: "center"
+				orientation: 'vertical'
+				MDTopAppBar:
+					id: topbar
+					title: "Account"				
+				ScrollView:
+
+					GridLayout:
+						id: accountdetails
+						cols: 1
+						size_hint_y: None
+						height: self.minimum_height
+						
+							
+			MDFlatButton:
+				text: "SIGN OUT"
+				pos_hint: {'center_x':.5, 'center_y': .1}
+				font_size: "20dp"
+				md_bg_color: "#FF5623"
+				on_press: root.manager.current = "login"
+													
+<ChangePasswordContent>:
+	orientation: 'vertical'
+	adaptive_height: True
+	halign: "center"
+	MDTextField:
+		write_tab: False
+		id:old_password
+		pos_hint: {'center_x':.5}
+		size_hint_x: 0.8
+		hint_text: "enter old password"
+		
+	MDTextField:
+		write_tab: False
+		id:new_password
+		pos_hint: {'center_x':.5}
+		size_hint_x: 0.8
+		hint_text: "enter new password"
+				
+	MDFlatButton:
+		pos_hint: {'center_x':.5}
+		md_bg_color: "#FF5623"
+		#size_hint_x: 0.4
+		text: 'Confirm'
+		on_release: root.change_password()
+
+		
+		
+<SIGNUP>:
+	name: "signup"
+	MDLabel:
+		text: "Create Account"
+		font_size: "48dp"
+		halign: "center"
+		color: "#FF5623"
+		pos_hint: {"center_y": .8}
+	MDTextField:
+		id: new_username
+		hint_text: 'enter new username'
+		icon_right: 'account'
+		font_size: "20dp"
+		size_hint_x: .85
+		pos_hint: {'center_x':.5, 'center_y': .6}
+		on_text: self.text = self.text.replace(" ","")
+		write_tab: False
+	MDTextField:
+		id: password1
+		password: True
+		hint_text: 'enter new password'
+		icon_right: 'eye-off'
+		font_size: "20dp"
+		size_hint_x: .85
+		pos_hint: {'center_x':.5, 'center_y': .5}
+		on_text: self.text = self.text.replace(" ","")
+		write_tab: False
+	MDTextField:
+		id: password2
+		password: True
+		hint_text: 're-enter new password'
+		icon_right: 'eye-off'
+		font_size: "20dp"
+		size_hint_x: .85
+		pos_hint: {'center_x':.5, 'center_y': .4}
+		on_text: self.text = self.text.replace(" ","")
+		write_tab: False
+		
+	BoxLayout:
+		size_hint: .6, None
+		height: '30dp'
+		pos_hint: {'center_x':.5,'center_y':.3}
+		spacing: '10dp'
+		MDFlatButton:
+			text: "CONFIRM"
+			font_size: "18dp"
+			size_hint_x: 1
+			md_bg_color: "#FF5623"
+			on_release: root.create_account()
+		MDFlatButton:
+			text: "GO BACK"
+			font_size: "18dp"
+			size_hint_x: 1
+			md_bg_color: "#FF5623"
+			on_release: root.manager.current = "login"
+								
+	
+<solvescreen>:
+	name: 'solve screen'	
+	BoxLayout:
+		orientation: 'vertical'
+		adaptive_height: True
+		MDTopAppBar:
+			title: "Solution"
+		MDIconButton:
+			icon: "arrow-left"
+			on_release: root.manager.current = "main"
+		ScrollView:
+			GridLayout:
+				pos_hint: {'center_x': 0.5}
+				cols: 1
+				size_hint_y: None
+				MDList:
+					OneLineListItem:
+						id: equation
+					ThreeLineListItem:
+						id: line1
+					ThreeLineListItem:
+						id: line2
+					OneLineListItem:
+						id: line3
+					OneLineListItem:
+						id: line4
+					OneLineListItem:
+						id: line5
+<linearscreen>:
+	name: 'linear'
+	BoxLayout:
+		orientation: 'vertical'
+		adaptive_height: True
+		MDTopAppBar:
+			title: "Solution"
+		MDIconButton:
+			icon: "arrow-left"
+			on_release: root.manager.current = "main"
+		ScrollView:
+			GridLayout:
+				pos_hint: {'center_x': 0.5}
+				cols: 1
+				size_hint_y: None
+				MDList:
+					OneLineListItem:
+						id: method
+					OneLineListItem:
+						id: result
+
+<graphscreen>:
+	name: 'graph'
+	BoxLayout:
+		orientation: 'vertical'
+		adaptive_height: True
+		MDTopAppBar:
+			title: "Graph Solution"
+		MDIconButton:
+			icon: "arrow-left"
+			on_release: 	
+				root.manager.current = "main"
+				root.delete_plot()
+		BoxLayout:
+			id: graph
+		MDLabel:
+			pos_hint: {'center_x': 0.5}
+			size_hint_y: None
+			id: exact
+			text: ""
+		MDLabel:
+			pos_hint: {'center_x': 0.5}
+			size_hint_y: None
+			id: decimal
+			text: ""
+		MDLabel:
+			pos_hint: {'center_x': 0.5}
+			size_hint_y: None
+			id: nature
+			text: ""
