@@ -24,7 +24,6 @@ import time
 import os
 import cv2
 import csv
-
 Window.size = (375, 625)
 
 class Login(MDScreen): # creates a Login class the inherits MDScreen
