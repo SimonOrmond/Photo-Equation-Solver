@@ -5,14 +5,20 @@ A Kivy/KivyMD app that photographs a handwritten linear or quadratic equation, r
 ## Pipeline
 
 ```mermaid
-flowchart LR
-    A[Photo or upload] --> B[Preprocess<br/>threshold + clean up]
-    B --> C[Segment<br/>one box per symbol]
-    C --> D[Normalise<br/>28×28 crops]
-    D --> E[SymbolNet<br/>classify each symbol]
-    E --> F["Equation string<br/>e.g. 5X2+10X-30=0"]
-    F --> G[Find coefficients]
-    G --> H[Solve or graph]
+%%{init: {"flowchart": {"htmlLabels": false}}}%%
+flowchart TD
+    A["`Photo or upload`"] --> B["`**Preprocess**
+threshold + clean up`"]
+    B --> C["`**Segment**
+one box per symbol`"]
+    C --> D["`**Normalise**
+28×28 crops`"]
+    D --> E["`**SymbolNet**
+classify each symbol`"]
+    E --> F["`**Equation string**
+e.g. 5X2+10X-30=0`"]
+    F --> G["`Find coefficients`"]
+    G --> H["`Solve or graph`"]
 ```
 
 ## The neural network
