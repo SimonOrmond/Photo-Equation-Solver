@@ -1,0 +1,23 @@
+# training dataset and the crops made from it (large, and recreated by prepare_data.py)
+custom net/Data/
+
+# results recreated by running the scripts in custom net
+custom net/output/
+
+# Python cache
+__pycache__/
+
+# personal editor settings
+.vscode/
+
+# files the app writes while it runs (.gitkeep keeps the empty folders, which the app needs)
+images/*
+!images/.gitkeep
+home images/*
+!home images/.gitkeep
+processed images/*
+!processed images/.gitkeep
+plot.png
+
+# real accounts (copy logindetails.example.csv to logindetails.csv to start)
+logindetails.csv

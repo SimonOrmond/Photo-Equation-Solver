@@ -1,14 +1,23 @@
+
 from kivy.lang import Builder
 from kivymd.app import MDApp
-from kivymd.uix.button import MDFlatButton
+from kivymd.uix.button import MDButton, MDButtonText
 from kivy.uix.screenmanager import ScreenManager, NoTransition
-from kivymd.uix.hero import MDBoxLayout
 from kivymd.uix.screen import MDScreen
 from kivymd.uix.label import MDLabel
-from kivymd.uix.dialog import MDDialog
+from kivymd.uix.dialog import MDDialog, MDDialogHeadlineText, MDDialogSupportingText, MDDialogButtonContainer
 from kivy.uix.image import Image
-from kivymd.uix.imagelist import MDSmartTile
-from kivymd.uix.expansionpanel import MDExpansionPanel, MDExpansionPanelOneLine
+from kivy.uix.widget import Widget
+from kivy.uix.behaviors import ButtonBehavior
+from kivy.clock import Clock
+from kivy.graphics.texture import Texture
+from kivy.logger import Logger
+from kivy.properties import BooleanProperty, ListProperty, NumericProperty, StringProperty
+from kivymd.uix.behaviors import RotateBehavior
+from kivymd.uix.imagelist import MDSmartTile, MDSmartTileImage, MDSmartTileOverlayContainer
+from kivymd.uix.expansionpanel import MDExpansionPanel, MDExpansionPanelHeader, MDExpansionPanelContent
+from kivymd.uix.list import MDListItemTrailingIcon
+from kivymd.uix.navigationbar import MDNavigationItem
 from kivy.core.window import Window
 from kivy.uix.filechooser import FileChooserListView
 from plyer import filechooser
@@ -17,7 +26,7 @@ import matplotlib.pyplot as plt
 import cmath
 from kivy.uix.popup import Popup
 import numpy as np
-import easyocr
+from recogniser import recognise
 import re   
 import glob
 import time
@@ -25,6 +34,63 @@ import os
 import cv2
 import csv
 Window.size = (375, 625)
+
+class TileImage(MDSmartTileImage): # KivyMD 2.0 sets up the tap effect before the image has a height, which some graphics drivers reject
+    def init_fbos(self):
+        if not self.height:
+            self.height = 1 # the real height is set straight after, once the image is added to its tile
+        super().init_fbos()
+
+class NavItem(MDNavigationItem): # an item in the bottom navigation bar (layout in Main.kv)
+    icon = StringProperty()
+    text = StringProperty()
+
+class OpenCVCamera(Image): # replaces Kivy's Camera widget, whose OpenCV provider doesn't support OpenCV 5
+    index = NumericProperty(0) # which camera to use
+    resolution = ListProperty([640, 480]) # preferred capture resolution
+    play = BooleanProperty(False) # whether the camera is streaming
+    def __init__(self, **kwargs):
+        self._device = None
+        self._event = None
+        super().__init__(**kwargs)
+        self.fbind('index', self._restart) # reopens the camera when the index/resolution changes
+        self.fbind('resolution', self._restart)
+        self.fbind('play', self._restart)
+        self._restart()
+
+    def _restart(self, *args):
+        self._stop()
+        if self.play:
+            self._start()
+
+    def _start(self):
+        self._device = cv2.VideoCapture(int(self.index))
+        if not self._device.isOpened():
+            Logger.warning(f"Camera: could not open camera {int(self.index)}")
+            return
+        self._device.set(cv2.CAP_PROP_FRAME_WIDTH, self.resolution[0])
+        self._device.set(cv2.CAP_PROP_FRAME_HEIGHT, self.resolution[1])
+        fps = self._device.get(cv2.CAP_PROP_FPS)
+        self._event = Clock.schedule_interval(self._update, 1.0 / fps if fps > 1 else 1.0 / 30)
+
+    def _stop(self):
+        if self._event:
+            self._event.cancel()
+            self._event = None
+        if self._device:
+            self._device.release()
+            self._device = None
+
+    def _update(self, dt): # reads the latest frame and draws it on the widget
+        ret, frame = self._device.read()
+        if not ret:
+            return
+        h, w = frame.shape[:2]
+        if self.texture is None or self.texture.size != (w, h):
+            self.texture = Texture.create(size=(w, h), colorfmt='bgr')
+            self.texture.flip_vertical()
+        self.texture.blit_buffer(frame.tobytes(), colorfmt='bgr', bufferfmt='ubyte')
+        self.canvas.ask_update()
 
 class Login(MDScreen): # creates a Login class the inherits MDScreen
     dialog = None   
@@ -63,15 +129,16 @@ class Login(MDScreen): # creates a Login class the inherits MDScreen
     def show_alert_dialog(self,message_title, message_text): # show dialogue function
         if not self.dialog: 
             self.dialog = MDDialog( # creates dialogue instance
-                title=message_title, # formatting of the error box
-                text= message_text,
-                buttons=[
-                    MDFlatButton( # button with box to go back to login screen
-                        text="go back",
-                        theme_text_color="Custom",
+                MDDialogHeadlineText(text=message_title), # formatting of the error box
+                MDDialogSupportingText(text=message_text),
+                MDDialogButtonContainer(
+                    Widget(), # pushes the button to the right
+                    MDButton( # button with box to go back to login screen
+                        MDButtonText(text="go back"),
+                        style="text",
                         on_release=lambda _: self.dialog.dismiss() # closes dialogue box when button pressed
-                    ),                    
-                ],
+                    ),
+                ),
             )
         self.dialog.open()
 
@@ -125,36 +192,20 @@ class Main(MDScreen): #Creates the Main class inheriting MDScreen
         adaptive_result = cv2.adaptiveThreshold(img, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 101, 38)
         #^uses adaptive thresholding to remove shadow and background noise           
         kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (4,5 ))
-        morph_img = cv2.morphologyEx(adaptive_result, cv2.MORPH_CLOSE, kernel)# morphology to smooth out writing
-        cv2.imwrite("crop.png", morph_img)
-             # doesnt crop the img if it was uploaded
-        morph_img = adaptive_result[224:705, 8:648]
+        # MORPH_OPEN thickens dark strokes on a white background (MORPH_CLOSE erased them)
+        morph_img = cv2.morphologyEx(adaptive_result, cv2.MORPH_OPEN, kernel)
+        if not upload: # only crop camera captures to the viewfinder; uploaded images are used whole
+            h, w = morph_img.shape
+            morph_img = morph_img[min(224, h):min(705, h), min(8, w):min(648, w)]
+            if morph_img.size == 0: # image smaller than expected, fall back to the full image
+                morph_img = cv2.morphologyEx(adaptive_result, cv2.MORPH_OPEN, kernel)
         processed_img = cv2.imwrite(r"processed images\processed_img.png", morph_img)
         self.read_text_from_image(r"processed images\processed_img.png", morph_img) #reads the image         
    
-    def read_text_from_image(self, proc_image_path, morph_img, language='en'):
-        # Load the image using OpenCV
-        image = cv2.imread(proc_image_path)
-        # Initialize the OCR reader with the specified language
-        reader = easyocr.Reader([language])
-        # Perform OCR on the image
-        result = reader.readtext(image)
-
-        # Extract and print the recognized text
-        recognized_text = ''.join([re.sub(r'^\W+|\W+$', '', text[1]) for text in result])
-         #for debugging
-         # passes string into the coefficient finder function
-        print('Recognized Text: ' + recognized_text)
-        recognized_text = recognized_text.replace('_', "-")
-        recognized_text = recognized_text.replace(" ","")
-        recognized_text = recognized_text.replace("/","1")
-        recognized_text = recognized_text.replace("|","1")
-        recognized_text = recognized_text.replace("l","1")
-        recognized_text = recognized_text.replace("I","1")
-        recognized_text = recognized_text.replace("O","0")
-        recognized_text = recognized_text.replace("H","4")
-        print('Recognized Text: ' + recognized_text)
-         # remove confusion between underscores and minuses
+    def read_text_from_image(self, proc_image_path, morph_img):
+        # splits the image into symbols and reads each one with the trained network (see recogniser.py)
+        # gives e.g. "5X2+10X-30=0", or "" if it can't read the image, which shows the "invalid image" error
+        recognized_text = recognise(morph_img)
         self.split_equation(recognized_text, morph_img) # passes equation into the split equation function
 
     def split_equation(self, equation, img): # separates both sides of the equation (before and after the =)
@@ -163,7 +214,9 @@ class Main(MDScreen): #Creates the Main class inheriting MDScreen
         graph = False # variable to store whether the image is of a function or not
         img_valid = True
         if "Y" in equation:
-            a, b, c = self.find_coefficients(equation.replace(" ", "")) # finds coefficients
+            # use the side of the "=" that doesn't contain Y, e.g. Y=X2-9X+7 -> X2-9X+7
+            sides = [side for side in equation.replace(" ", "").split("=") if "Y" not in side]
+            a, b, c = self.find_coefficients(sides[0] if sides else equation.replace("Y", ""))
             
             graph = True
         elif "=" in equation: # separates left and right side of equation
@@ -198,39 +251,24 @@ class Main(MDScreen): #Creates the Main class inheriting MDScreen
             os.remove(files[0])
 
     def find_coefficients(self, equation):
-        # defines the x2 pattern
-        pattern_x2 = re.compile(r'([-+]?\d*)x2\s*', re.IGNORECASE)
-        # defines x pattern with negative lookahead to exclude x2
-        pattern_x = re.compile(r'([-+]?\d+)\s*x(?!\d)', re.IGNORECASE)
-        # pattern for constant terms
-        pattern_constant = re.compile(r'([-+]?\d+)$')
+        # Splits an expression into terms like "+5X2", "-X", "+30" and adds up the
+        # coefficients of each type, so terms can appear in any order or be repeated.
+        # Note: "X2" is read as X squared, because the OCR flattens superscripts.
+        a = b = c = 0
+        for sign, number, variable in re.findall(r'([+-]?)(\d*)(X2|X)?', equation.upper()):
+            if not number and not variable:
+                continue # skips empty matches and stray characters
+            value = int(number) if number else 1
+            if sign == '-':
+                value = -value
+            if variable == 'X2':
+                a += value
+            elif variable == 'X':
+                b += value
+            else:
+                c += value
+        return a, b, c
 
-        # Search for matches in the equation
-        match_x2 = pattern_x2.search(equation)
-        match_x = pattern_x.search(equation)
-        match_constant = pattern_constant.search(equation)
-
-        val_pattern_x2 = re.compile(r'x2|X2')
-        #val_pattern_x = re.compile(r'x|X')
-        x_is_there = re.search(r'[xX](?!2)', equation)
-        x2_is_there = val_pattern_x2.search(equation)           
-        # Set to 1 if x2 is present without explicit coefficient
-        if bool(x2_is_there) == True:
-            coefficient_x2 = int(match_x2.group(1)) if match_x2 and match_x2.group(1) else 1
-        else:   
-            coefficient_x2 = 0 # x2 = 0 if there aren't any pressent
-    
-        if bool(x_is_there) == True: # checks if x term is present
-            coefficient_x = int(match_x.group(1)) if match_x and match_x.group(1) else 1
-        else:
-            coefficient_x = 0
-        # Extract coefficients or set to 0 if not found
-        constant_term = int(match_constant.group(1)) if match_constant and match_constant.group(1) else 0
-        if equation == "x2":
-            constant_term = 0
-        #print(coefficient_x2, coefficient_x, constant_term)  
-        return coefficient_x2, coefficient_x, constant_term        
-    
     def solve_linear(self,b ,c, graph, equation): # solves the linear equation
         x = (-c)/b # computes the solution
         MDApp.get_running_app().root.current = 'linear' # changes to linear solution screen
@@ -283,10 +321,11 @@ class Main(MDScreen): #Creates the Main class inheriting MDScreen
                 image_path = os.path.join(image_directory, filename)
                 file_name, _ = os.path.splitext(str(filename))
                 # Create and add MDSmartTile for each image
-                smart_tile = MDSmartTile(source=image_path)
-                
+                smart_tile = MDSmartTile(TileImage(source=image_path))
+                overlay = MDSmartTileOverlayContainer(md_bg_color=(0, 0, 0, 0.5), size_hint_y=None, height='48dp', padding='8dp')
                 label = MDLabel(text=file_name, theme_text_color="Secondary", size_hint_y=None, height='30dp')
-                smart_tile.add_widget(label)
+                overlay.add_widget(label)
+                smart_tile.add_widget(overlay)
                 self.ids.imagegrid.add_widget(smart_tile) #adds the widget to the prespecified layout 
 
     def display_info(self): # displays the helpful information
@@ -296,21 +335,37 @@ class Main(MDScreen): #Creates the Main class inheriting MDScreen
         l.show_alert_dialog(title, message)  # uses the show_alert_dialog function from the login class
 
     def account_screen(self, username):
-        self.ids.topbar.title = "Welcome " + username
+        self.ids.topbar.text = "Welcome " + username
         self.ids.accountdetails.clear_widgets()  # clears previous widgets     
         
-        password_panel = MDExpansionPanel(  # for change password functionality
-        icon="icon.png", 
-        content=ChangePasswordContent(),
-        panel_cls=MDExpansionPanelOneLine(
-        text="Change Password",
-        ))  
+        password_panel = ChangePasswordPanel(  # for change password functionality
+        ChangePasswordHeader(),
+        ChangePasswordContent(),
+        )  
         self.ids.accountdetails.add_widget(password_panel)   # adds both widgets to account screen   
         
     pass
 
 
-class ChangePasswordContent(MDBoxLayout): # inherits MDBoxLayout
+class PanelChevron(ButtonBehavior, RotateBehavior, MDListItemTrailingIcon): # arrow that turns when the panel opens
+    pass
+
+class ChangePasswordPanel(MDExpansionPanel):
+    def _set_content_height(self, *args): # KivyMD 2.0 takes 88dp off the content height here, which cut off the change password fields
+        self._original_content_height = self._content.height
+        self._content.height = 0
+
+class ChangePasswordHeader(MDExpansionPanelHeader): # header row that opens/closes the change password panel
+    def toggle_panel(self):
+        panel = self.parent
+        if not panel.is_open:
+            panel.open()
+            panel.set_chevron_down(self.ids.chevron)
+        else:
+            panel.close()
+            panel.set_chevron_up(self.ids.chevron)
+
+class ChangePasswordContent(MDExpansionPanelContent): # inherits MDExpansionPanelContent
     def change_password(self):    
         l = Login()
         old_password = self.ids.old_password.text # grabs values from the text fields
@@ -449,7 +504,7 @@ class graphscreen(MDScreen):
 class myApp(MDApp): # creates the myApp class the inherits MDApp
     def build(self): # constructor method to create the application
         self.theme_cls.theme_style = "Dark" # formats the theme of the application
-        self.theme_cls.primary_palette = "DeepOrange"
+        self.theme_cls.primary_palette = "#FF5722" # Material "DeepOrange" (palette names were replaced by colours in KivyMD 2)
         Builder.load_file("Main.kv") # links the .kv file with the .py file
         sm = ScreenManager(transition = NoTransition()) # creates the screen manager for navigating between screen
         sm.add_widget(Login(name='login')) # defining the screens
@@ -459,7 +514,7 @@ class myApp(MDApp): # creates the myApp class the inherits MDApp
         sm.add_widget(graphscreen(name='graph'))
         sm.add_widget(linearscreen(name='linear'))
         return sm
-    pass    
+    pass   
 
 if __name__ == "__main__": # runs the app class when the program is run.
    myApp().run()

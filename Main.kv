@@ -1,3 +1,67 @@
+#:import FadeTransition kivy.uix.screenmanager.FadeTransition
+
+# Reusable widgets, styled to match how the KivyMD 1.x widgets looked
+<Login,Main,SIGNUP,solvescreen,linearscreen,graphscreen>: # 1.x painted the window background, 2.x screens are see-through
+	md_bg_color: self.theme_cls.backgroundColor
+
+<MDIconButton>: # 1.x icon buttons used the text colour, 2.x defaults to the primary colour
+	theme_icon_color: "Custom"
+	icon_color: "white"
+
+<OrangeButton@MDButton>: # replaces the orange MDFlatButton
+	text: ""
+	font_size: "14sp"
+	style: "filled"
+	theme_bg_color: "Custom"
+	md_bg_color: "#FF5623"
+	MDButtonText:
+		text: root.text
+		theme_text_color: "Custom"
+		text_color: "white"
+		theme_font_size: "Custom"
+		font_size: root.font_size
+		pos_hint: {"center_x": .5, "center_y": .5}
+
+<LineTextField@MDTextField>: # replaces the 'line' mode MDTextField (underline only, no background)
+	mode: "filled"
+	theme_bg_color: "Custom"
+	fill_color_normal: 0, 0, 0, 0
+	fill_color_focus: 0, 0, 0, 0
+
+<OrangeTopAppBar@MDTopAppBar>: # 1.x top app bars used the primary colour as their background
+	theme_bg_color: "Custom"
+	md_bg_color: "#FF5722"
+
+<AppBarTitle@MDTopAppBarTitle>:
+	theme_text_color: "Custom"
+	text_color: "white"
+
+<OneLineListItem@MDListItem>: # replaces the removed OneLineListItem
+	text: ""
+	theme_bg_color: "Custom"
+	md_bg_color: 0, 0, 0, 0
+	MDListItemHeadlineText:
+		text: root.text
+
+<ThreeLineListItem@MDListItem>: # replaces the removed ThreeLineListItem
+	text: ""
+	secondary_text: ""
+	tertiary_text: ""
+	theme_bg_color: "Custom"
+	md_bg_color: 0, 0, 0, 0
+	MDListItemHeadlineText:
+		text: root.text
+	MDListItemSupportingText:
+		text: root.secondary_text
+	MDListItemTertiaryText:
+		text: root.tertiary_text
+
+<NavItem>: # an item in the bottom navigation bar
+	MDNavigationItemIcon:
+		icon: root.icon
+	MDNavigationItemLabel:
+		text: root.text
+
 <MD3Card>
 	padding: 4
 	size_hint: None, None
@@ -13,7 +77,8 @@
 			id: label
 			text: root.text
 			adaptive_size: True
-			color: "grey"
+			theme_text_color: "Custom"
+			text_color: "grey"
 			pos: "12dp", "12dp"
 			bold: True
 
@@ -23,29 +88,36 @@
 	Screen:
 		MDLabel:
 			text: "Welcome"
+			theme_font_size: "Custom"
 			font_size: "48dp"
 			halign: "center"
-			color: "#FF5623"
+			theme_text_color: "Custom"
+			text_color: "#FF5623"
 			pos_hint: {"center_y": .8}
-		MDTextField:
+		LineTextField:
 			id: username
-			hint_text: 'Username'
-			icon_right: 'account'
 			font_size: "20dp"
 			size_hint_x: .85
 			pos_hint: {'center_x':.5, 'center_y': .65}
 			on_text: self.text = self.text.replace(" ","")
 			write_tab: False
-		MDTextField:
+			MDTextFieldHintText:
+				text: 'Username'
+			MDTextFieldTrailingIcon:
+				icon: 'account'
+		LineTextField:
 			id: password
-			hint_text: 'Password'
 			password: True
-			icon_right: 'eye-off'
 			font_size: "20dp"
 			size_hint_x: .85
 			pos_hint: {'center_x':.5, 'center_y': .5}
 			on_text: self.text = self.text.replace(" ","")
 			write_tab: False
+			MDTextFieldHintText:
+				text: 'Password'
+			MDTextFieldTrailingIcon:
+				id: password_icon
+				icon: 'eye-off'
 		BoxLayout:
 			size_hint: .85, None
 			height: "30dp"
@@ -59,7 +131,7 @@
 				pos_hint: {'center_x':.5, 'center_y': .5}
 				on_press:
 					password.password = False if password.password == True else True
-					password.icon_right = "eye" if password.icon_right == "eye-off" else "eye-off"
+					password_icon.icon = "eye" if password_icon.icon == "eye-off" else "eye-off"
 			MDLabel:
 				text: "[ref=Show Password]Show Password[/ref]"
 				markup: True
@@ -71,210 +143,246 @@
 			height: '30dp'
 			pos_hint: {'center_x':.5,'center_y':.3}
 			spacing: '15dp'
-			MDFlatButton:
+			OrangeButton:
 				text: "SIGN IN"
 				font_size: "22dp"
+				theme_width: "Custom"
 				size_hint_x: 1
-				md_bg_color: "#FF5623"
-				on_release: 
+				on_release:
 					root.logger()
-					
-					
-			MDFlatButton:
+
+
+			OrangeButton:
 				text: "SIGN UP"
 				font_size: "22dp"
+				theme_width: "Custom"
 				size_hint_x: 1
-				md_bg_color: "#FF5623"
 				on_release: root.manager.current = "signup"
-		BoxLayout:			
+		BoxLayout:
 			MDLabel:
 				pos_hint: {'center_x':.5,'center_y':.2}
-				id: attempt	
+				id: attempt
 				text : ""
 <Main>:
 	id:main
 	name: 'main'
-	MDBottomNavigation:
+	MDBoxLayout: # MDBottomNavigation was replaced by a screen manager + MDNavigationBar
+		orientation: 'vertical'
+		MDScreenManager:
+			id: tabs
+			transition: FadeTransition(duration=.2)
 
-		MDBottomNavigationItem:
-			name: "home"
-			text: "Home"
-			icon: "home"
-			BoxLayout:
-				orientation: 'vertical'
-				MDTopAppBar:
-					title: 'Home'			
-				GridLayout:
-					id: imagegrid					
-					cols: 1
-					spacing: dp(8)
-					padding: dp(8)
-			MDIconButton:
-				height: "30dp"
-				pos_hint: {'center_x':.95,'center_y':.95}
-				icon: 'information-outline'
-				style: 'standard'
-				on_release:
-					root.display_info()
-
-		MDBottomNavigationItem:
-			name: "camera"
-			text: "Camera"
-			icon: "camera"
-			BoxLayout:
-				orientation: 'vertical'
-				
-				Camera:
-					id: camera
-					resolution: (640, 480)
-					play: True
-					index: 1
+			MDScreen:
+				name: "Home"
 				BoxLayout:
-					size_hint: .6, None
-					height: '30dp'
-					pos_hint: {'center_x':.5,'center_y':.3}
-					spacing: '15dp'					
-					MDIconButton:
-						icon: "camera-flip"
-						size_hint_y: None
-						size_hint_x: 1
-						height: '60dp'
-						on_release: root.switch_camera()
-					MDIconButton:
-						icon: "camera"
-						size_hint_y: None
-						size_hint_x: 1
-						md_bg_color: "#FF5623"
-						height: '60dp'
-						on_release: 
-							root.capture()
-							root.on_enter()
-					MDIconButton:
-						icon: "image-filter-none"
-						size_hint_y: None
-						size_hint_x: 1
-						height: '60dp'
-						on_release: root.upload_photo()
-
-
-		MDBottomNavigationItem:
-			name: "account"
-			text: "Account"
-			icon: "account"
-	
-			BoxLayout:
-				alignment: "center"
-				orientation: 'vertical'
-				MDTopAppBar:
-					id: topbar
-					title: "Account"				
-				ScrollView:
-
+					orientation: 'vertical'
+					OrangeTopAppBar:
+						AppBarTitle:
+							text: 'Home'
 					GridLayout:
-						id: accountdetails
+						id: imagegrid
 						cols: 1
-						size_hint_y: None
-						height: self.minimum_height
-						
-							
-			MDFlatButton:
-				text: "SIGN OUT"
-				pos_hint: {'center_x':.5, 'center_y': .1}
-				font_size: "20dp"
-				md_bg_color: "#FF5623"
-				on_press: root.manager.current = "login"
-													
+						spacing: dp(8)
+						padding: dp(8)
+				MDIconButton:
+					height: "30dp"
+					pos_hint: {'center_x':.95,'center_y':.95}
+					icon: 'information-outline'
+					style: 'standard'
+					on_release:
+						root.display_info()
+
+			MDScreen:
+				name: "Camera"
+				BoxLayout:
+					orientation: 'vertical'
+
+					OpenCVCamera:
+						id: camera
+						resolution: (640, 480)
+						play: True
+						index: 1
+					BoxLayout:
+						size_hint: .6, None
+						height: '30dp'
+						pos_hint: {'center_x':.5,'center_y':.3}
+						spacing: '15dp'
+						MDIconButton:
+							icon: "camera-flip"
+							size_hint_y: None
+							size_hint_x: 1
+							height: '60dp'
+							on_release: root.switch_camera()
+						MDIconButton:
+							icon: "camera"
+							size_hint_y: None
+							size_hint_x: 1
+							theme_bg_color: "Custom"
+							md_bg_color: "#FF5623"
+							height: '60dp'
+							on_release:
+								root.capture()
+								root.on_enter()
+						MDIconButton:
+							icon: "image-filter-none"
+							size_hint_y: None
+							size_hint_x: 1
+							height: '60dp'
+							on_release: root.upload_photo()
+
+
+			MDScreen:
+				name: "Account"
+
+				BoxLayout:
+					alignment: "center"
+					orientation: 'vertical'
+					OrangeTopAppBar:
+						AppBarTitle:
+							id: topbar
+							text: "Account"
+					ScrollView:
+
+						GridLayout:
+							id: accountdetails
+							cols: 1
+							size_hint_y: None
+							height: self.minimum_height
+
+
+				OrangeButton:
+					text: "SIGN OUT"
+					pos_hint: {'center_x':.5, 'center_y': .1}
+					font_size: "20dp"
+					on_press: root.manager.current = "login"
+
+		MDNavigationBar:
+			on_switch_tabs: tabs.current = args[3] # args[3] is the text of the item pressed
+
+			NavItem:
+				text: "Home"
+				icon: "home"
+				active: True
+
+			NavItem:
+				text: "Camera"
+				icon: "camera"
+
+			NavItem:
+				text: "Account"
+				icon: "account"
+
 <ChangePasswordContent>:
 	orientation: 'vertical'
 	adaptive_height: True
 	halign: "center"
-	MDTextField:
+	LineTextField:
 		write_tab: False
 		id:old_password
 		pos_hint: {'center_x':.5}
 		size_hint_x: 0.8
-		hint_text: "enter old password"
-		
-	MDTextField:
+		MDTextFieldHintText:
+			text: "enter old password"
+
+	LineTextField:
 		write_tab: False
 		id:new_password
 		pos_hint: {'center_x':.5}
 		size_hint_x: 0.8
-		hint_text: "enter new password"
-				
-	MDFlatButton:
+		MDTextFieldHintText:
+			text: "enter new password"
+
+	OrangeButton:
 		pos_hint: {'center_x':.5}
-		md_bg_color: "#FF5623"
 		#size_hint_x: 0.4
 		text: 'Confirm'
 		on_release: root.change_password()
 
-		
-		
+<ChangePasswordHeader>: # clickable header row of the change password expansion panel
+	MDListItem:
+		theme_bg_color: "Custom"
+		md_bg_color: 0, 0, 0, 0
+		on_release: root.toggle_panel()
+		MDListItemHeadlineText:
+			text: "Change Password"
+		PanelChevron:
+			id: chevron
+			icon: "chevron-right"
+
+
 <SIGNUP>:
 	name: "signup"
 	MDLabel:
 		text: "Create Account"
+		theme_font_size: "Custom"
 		font_size: "48dp"
 		halign: "center"
-		color: "#FF5623"
+		theme_text_color: "Custom"
+		text_color: "#FF5623"
 		pos_hint: {"center_y": .8}
-	MDTextField:
+	LineTextField:
 		id: new_username
-		hint_text: 'enter new username'
-		icon_right: 'account'
 		font_size: "20dp"
 		size_hint_x: .85
 		pos_hint: {'center_x':.5, 'center_y': .6}
 		on_text: self.text = self.text.replace(" ","")
 		write_tab: False
-	MDTextField:
+		MDTextFieldHintText:
+			text: 'enter new username'
+		MDTextFieldTrailingIcon:
+			icon: 'account'
+	LineTextField:
 		id: password1
 		password: True
-		hint_text: 'enter new password'
-		icon_right: 'eye-off'
 		font_size: "20dp"
 		size_hint_x: .85
 		pos_hint: {'center_x':.5, 'center_y': .5}
 		on_text: self.text = self.text.replace(" ","")
 		write_tab: False
-	MDTextField:
+		MDTextFieldHintText:
+			text: 'enter new password'
+		MDTextFieldTrailingIcon:
+			icon: 'eye-off'
+	LineTextField:
 		id: password2
 		password: True
-		hint_text: 're-enter new password'
-		icon_right: 'eye-off'
 		font_size: "20dp"
 		size_hint_x: .85
 		pos_hint: {'center_x':.5, 'center_y': .4}
 		on_text: self.text = self.text.replace(" ","")
 		write_tab: False
-		
+		MDTextFieldHintText:
+			text: 're-enter new password'
+		MDTextFieldTrailingIcon:
+			icon: 'eye-off'
+
 	BoxLayout:
 		size_hint: .6, None
 		height: '30dp'
 		pos_hint: {'center_x':.5,'center_y':.3}
 		spacing: '10dp'
-		MDFlatButton:
+		OrangeButton:
 			text: "CONFIRM"
 			font_size: "18dp"
+			theme_width: "Custom"
 			size_hint_x: 1
-			md_bg_color: "#FF5623"
 			on_release: root.create_account()
-		MDFlatButton:
+		OrangeButton:
 			text: "GO BACK"
 			font_size: "18dp"
+			theme_width: "Custom"
 			size_hint_x: 1
-			md_bg_color: "#FF5623"
 			on_release: root.manager.current = "login"
-								
-	
+
+
 <solvescreen>:
-	name: 'solve screen'	
+	name: 'solve screen'
 	BoxLayout:
 		orientation: 'vertical'
 		adaptive_height: True
-		MDTopAppBar:
-			title: "Solution"
+		OrangeTopAppBar:
+			AppBarTitle:
+				text: "Solution"
 		MDIconButton:
 			icon: "arrow-left"
 			on_release: root.manager.current = "main"
@@ -301,8 +409,9 @@
 	BoxLayout:
 		orientation: 'vertical'
 		adaptive_height: True
-		MDTopAppBar:
-			title: "Solution"
+		OrangeTopAppBar:
+			AppBarTitle:
+				text: "Solution"
 		MDIconButton:
 			icon: "arrow-left"
 			on_release: root.manager.current = "main"
@@ -322,11 +431,12 @@
 	BoxLayout:
 		orientation: 'vertical'
 		adaptive_height: True
-		MDTopAppBar:
-			title: "Graph Solution"
+		OrangeTopAppBar:
+			AppBarTitle:
+				text: "Graph Solution"
 		MDIconButton:
 			icon: "arrow-left"
-			on_release: 	
+			on_release:
 				root.manager.current = "main"
 				root.delete_plot()
 		BoxLayout:
